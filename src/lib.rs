@@ -1,10 +1,10 @@
 use chrono::prelude::*;
 
 pub struct HTTPRequestLog {
-    timestamp: DateTime<Utc>,
-    requester_ip_address: &'static str,
-    restful_method: &'static str,
-    api_called: &'static str,
+    pub timestamp: DateTime<Utc>,
+    pub requester_ip_address: String,
+    pub restful_method: String,
+    pub api_called: String,
 }
 
 impl HTTPRequestLog {
@@ -28,9 +28,9 @@ mod tests {
     fn test_http_request_log_as_log_str() {
         let log = HTTPRequestLog {
             timestamp: Utc.with_ymd_and_hms(2014, 7, 8, 9, 10, 11).unwrap(),
-            requester_ip_address: "35.111.95.142",
-            restful_method: "GET",
-            api_called: "/api/v1/health_check",
+            requester_ip_address: "35.111.95.142".to_owned(),
+            restful_method: "GET".to_owned(),
+            api_called: "/api/v1/health_check".to_owned(),
         };
 
         assert_eq!(
