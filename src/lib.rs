@@ -6,7 +6,6 @@ use std::fs::{self, OpenOptions};
 use std::io;
 use std::io::prelude::*;
 
-
 pub enum LogLevel {
     INFO,
     ERROR,
@@ -27,17 +26,19 @@ pub struct HTTPRequestLog {
     pub requester_ip_address: String,
     pub restful_method: String,
     pub api_called: String,
+    pub request_body_utf8_str: String,
 }
 
 impl HTTPRequestLog {
     pub fn as_log_str(&self) -> String {
         format!(
-            "[{}] [{}] [{}] [{}] [{}]",
+            "[{}] [{}] [{}] [{}] [{}] [{}]",
             self.log_level,
             self.timestamp.to_rfc3339(),
             self.requester_ip_address,
             self.restful_method,
-            self.api_called
+            self.api_called,
+            self.request_body_utf8_str
         )
     }
 
@@ -79,11 +80,12 @@ mod tests {
             requester_ip_address: "35.111.95.142".to_owned(),
             restful_method: "GET".to_owned(),
             api_called: "/api/v1/health_check".to_owned(),
+            request_body_utf8_str: "{\"json_key\": \"json_value_str\"}".to_owned(),
         };
 
         assert_eq!(
             log.as_log_str(),
-            "[INFO] [2014-07-08T09:10:11+00:00] [35.111.95.142] [GET] [/api/v1/health_check]"
+            "[INFO] [2014-07-08T09:10:11+00:00] [35.111.95.142] [GET] [/api/v1/health_check] [{\"json_key\": \"json_value_str\"}]"
         );
     }
 
@@ -95,6 +97,7 @@ mod tests {
             requester_ip_address: "35.111.95.142".to_owned(),
             restful_method: "GET".to_owned(),
             api_called: "/api/v1/health_check".to_owned(),
+            request_body_utf8_str: "".to_owned(),
         };
 
         match log.write_to_server_log() {
