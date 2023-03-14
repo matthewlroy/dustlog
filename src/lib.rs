@@ -26,50 +26,53 @@ pub struct HTTPRequestLog {
     pub requester_ip_address: String,
     pub restful_method: String,
     pub api_called: String,
-    pub request_body_utf8_str: String,
+    pub request_body_utf8_str: Option<String>,
 }
 
 impl HTTPRequestLog {
     pub fn as_log_str(&self) -> String {
         format!(
             "[{}] [{}] [{}] [{}] [{}] [{}]",
-            self.log_level,
-            self.timestamp.to_rfc3339(),
-            self.requester_ip_address,
-            self.restful_method,
-            self.api_called,
-            self.request_body_utf8_str
+            &self.log_level,
+            &self.timestamp.to_rfc3339(),
+            &self.requester_ip_address,
+            &self.restful_method,
+            &self.api_called,
+            match &self.request_body_utf8_str {
+                None => "",
+                Some(str) => str,
+            }
         )
     }
+}
 
-    pub fn write_to_server_log(&self) -> io::Result<()> {
-        // Create the path for the desired pile (if not exists)
-        match fs::create_dir_all(get_env_var("DUST_LOG_PATH")) {
-            Ok(_) => Ok(()),
-            Err(e) => Err(e),
-        }?;
+pub fn write_to_server_log(log_str: &str) -> io::Result<()> {
+    // Create the path for the desired pile (if not exists)
+    match fs::create_dir_all(get_env_var("DUST_LOG_PATH")) {
+        Ok(_) => Ok(()),
+        Err(e) => Err(e),
+    }?;
 
-        let mut log_file = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(format!(
-                "{}/{}.{}",
-                get_env_var("DUST_LOG_PATH"),
-                "server",
-                get_env_var("DUST_LOG_FMT")
-            ))
-            .unwrap();
+    let mut log_file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(format!(
+            "{}/{}.{}",
+            get_env_var("DUST_LOG_PATH"),
+            "server",
+            get_env_var("DUST_LOG_FMT")
+        ))
+        .unwrap();
 
-        match writeln!(log_file, "{}", &self.as_log_str()) {
-            Ok(()) => Ok(()),
-            Err(e) => Err(e),
-        }
+    match writeln!(log_file, "{}", &log_str) {
+        Ok(()) => Ok(()),
+        Err(e) => Err(e),
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{HTTPRequestLog, LogLevel};
+    use crate::{write_to_server_log, HTTPRequestLog, LogLevel};
     use chrono::prelude::*;
 
     #[test]
@@ -80,7 +83,7 @@ mod tests {
             requester_ip_address: "35.111.95.142".to_owned(),
             restful_method: "GET".to_owned(),
             api_called: "/api/v1/health_check".to_owned(),
-            request_body_utf8_str: "{\"json_key\": \"json_value_str\"}".to_owned(),
+            request_body_utf8_str: Some("{\"json_key\": \"json_value_str\"}".to_owned()),
         };
 
         assert_eq!(
@@ -97,12 +100,12 @@ mod tests {
             requester_ip_address: "35.111.95.142".to_owned(),
             restful_method: "GET".to_owned(),
             api_called: "/api/v1/health_check".to_owned(),
-            request_body_utf8_str: "".to_owned(),
+            request_body_utf8_str: None,
         };
 
-        match log.write_to_server_log() {
-            Ok(_) => (),
-            Err(_) => (),
+        match write_to_server_log(&log.as_log_str()) {
+            Ok(_) => assert_eq!(true, true),
+            Err(_) => assert_eq!(false, true),
         }
     }
 }
