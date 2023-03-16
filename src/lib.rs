@@ -46,25 +46,18 @@ impl HTTPRequestLog {
     }
 }
 
-pub fn write_to_server_log(log_str: &str) -> io::Result<()> {
-    // Create the path for the desired pile (if not exists)
-    match fs::create_dir_all(get_env_var("DUST_LOG_PATH")) {
-        Ok(_) => Ok(()),
-        Err(e) => Err(e),
-    }?;
+pub fn write_to_server_log(log_str: String) -> io::Result<()> {
+    // Create the path for the desired logging area (if not exists)
+    fs::create_dir_all(get_env_var("DUST_LOG_PATH"))?;
 
-    let mut log_file = OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(format!(
-            "{}/{}.{}",
-            get_env_var("DUST_LOG_PATH"),
-            "server",
-            get_env_var("DUST_LOG_FMT")
-        ))
-        .unwrap();
+    let mut log_file = OpenOptions::new().create(true).append(true).open(format!(
+        "{}/{}.{}",
+        get_env_var("DUST_LOG_PATH"),
+        "server",
+        get_env_var("DUST_LOG_FMT")
+    ))?;
 
-    match writeln!(log_file, "{}", &log_str) {
+    match writeln!(log_file, "{}", log_str) {
         Ok(()) => Ok(()),
         Err(e) => Err(e),
     }
@@ -103,7 +96,7 @@ mod tests {
             request_body_utf8_str: None,
         };
 
-        match write_to_server_log(&log.as_log_str()) {
+        match write_to_server_log(log.as_log_str()) {
             Ok(_) => assert_eq!(true, true),
             Err(_) => assert_eq!(false, true),
         }
