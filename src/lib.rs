@@ -72,7 +72,7 @@ pub struct HTTPResponseLog {
     pub log_level: LogLevel,
     pub log_type: LogType,
     pub originating_ip_addr: String,
-    pub response_status_code: i16,
+    pub response_status_code: u16,
     pub body_as_utf8_str: Option<String>,
 }
 
