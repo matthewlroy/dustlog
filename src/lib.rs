@@ -41,19 +41,24 @@ pub struct HTTPRequestLog {
     pub originating_ip_addr: String,
     pub api: String,
     pub restful_method: String,
+    pub payload_size_in_bytes: Option<usize>,
     pub body_as_utf8_str: Option<String>,
 }
 
 impl HTTPRequestLog {
     pub fn as_log_str(&self) -> String {
         format!(
-            "[{}] [{}] [{}] [{}] [{}] [{}] [{}]",
+            "[{}] [{}] [{}] [{}] [{}] [{}] [{}B] [{}]",
             &self.timestamp.to_rfc3339(),
             &self.log_level,
             &self.log_type,
             &self.originating_ip_addr,
             &self.api,
             &self.restful_method,
+            match &self.payload_size_in_bytes {
+                None => "".to_owned(),
+                Some(payload_size_in_bytes) => payload_size_in_bytes.to_string(),
+            },
             match &self.body_as_utf8_str {
                 None => "",
                 Some(body_as_utf8_str) => body_as_utf8_str,
@@ -119,12 +124,13 @@ mod tests {
             originating_ip_addr: "35.111.95.142".to_owned(),
             api: "/api/v1/health_check".to_owned(),
             restful_method: "GET".to_owned(),
+            payload_size_in_bytes: Some(30),
             body_as_utf8_str: Some("{\"json_key\": \"json_value_str\"}".to_owned()),
         };
 
         assert_eq!(
             log.as_log_str(),
-            "[2014-07-08T09:10:11+00:00] [INFO] [REQUEST] [35.111.95.142] [/api/v1/health_check] [GET] [{\"json_key\": \"json_value_str\"}]"
+            "[2014-07-08T09:10:11+00:00] [INFO] [REQUEST] [35.111.95.142] [/api/v1/health_check] [GET] [30B] [{\"json_key\": \"json_value_str\"}]"
         );
 
         match write_to_server_log(log.as_log_str()) {
@@ -164,6 +170,7 @@ mod tests {
             originating_ip_addr: "35.111.95.142".to_owned(),
             api: "/api/v1/health_check".to_owned(),
             restful_method: "GET".to_owned(),
+            payload_size_in_bytes: Some(30),
             body_as_utf8_str: Some("{\"json_key\": \"json_value_str\"}".to_owned()),
         };
 
