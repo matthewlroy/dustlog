@@ -56,7 +56,7 @@ impl HTTPRequestLog {
             &self.api,
             &self.restful_method,
             match &self.payload_size_in_bytes {
-                None => "".to_owned(),
+                None => "0".to_owned(),
                 Some(payload_size_in_bytes) => payload_size_in_bytes.to_string(),
             },
             match &self.body_as_utf8_str {
