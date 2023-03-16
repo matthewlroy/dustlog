@@ -34,31 +34,52 @@ impl Display for LogType {
     }
 }
 
-pub struct HTTPLog {
+pub struct HTTPRequestLog {
     pub timestamp: DateTime<Utc>,
     pub log_level: LogLevel,
     pub log_type: LogType,
     pub originating_ip_addr: String,
     pub api: String,
     pub restful_method: String,
-    pub response_status_code: Option<i16>,
     pub body_as_utf8_str: Option<String>,
 }
 
-impl HTTPLog {
+impl HTTPRequestLog {
     pub fn as_log_str(&self) -> String {
         format!(
-            "[{}] [{}] [{}] [{}] [{}] [{}] [{}] [{}]",
+            "[{}] [{}] [{}] [{}] [{}] [{}] [{}]",
             &self.timestamp.to_rfc3339(),
             &self.log_level,
             &self.log_type,
             &self.originating_ip_addr,
             &self.api,
             &self.restful_method,
-            match &self.response_status_code {
-                None => "".to_owned(),
-                Some(response_status_code) => response_status_code.to_string(),
-            },
+            match &self.body_as_utf8_str {
+                None => "",
+                Some(body_as_utf8_str) => body_as_utf8_str,
+            }
+        )
+    }
+}
+
+pub struct HTTPResponseLog {
+    pub timestamp: DateTime<Utc>,
+    pub log_level: LogLevel,
+    pub log_type: LogType,
+    pub originating_ip_addr: String,
+    pub response_status_code: i16,
+    pub body_as_utf8_str: Option<String>,
+}
+
+impl HTTPResponseLog {
+    pub fn as_log_str(&self) -> String {
+        format!(
+            "[{}] [{}] [{}] [{}] [{}] [{}]",
+            &self.timestamp.to_rfc3339(),
+            &self.log_level,
+            &self.log_type,
+            &self.originating_ip_addr,
+            &self.response_status_code.to_string(),
             match &self.body_as_utf8_str {
                 None => "",
                 Some(body_as_utf8_str) => body_as_utf8_str,
@@ -86,25 +107,24 @@ pub fn write_to_server_log(log_str: String) -> io::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{write_to_server_log, HTTPLog, LogLevel, LogType};
+    use crate::{write_to_server_log, HTTPRequestLog, HTTPResponseLog, LogLevel, LogType};
     use chrono::prelude::*;
 
     #[test]
     fn test_http_request_log_as_log_str() {
-        let log = HTTPLog {
+        let log = HTTPRequestLog {
             timestamp: Utc.with_ymd_and_hms(2014, 7, 8, 9, 10, 11).unwrap(),
             log_level: LogLevel::INFO,
             log_type: LogType::REQUEST,
             originating_ip_addr: "35.111.95.142".to_owned(),
             api: "/api/v1/health_check".to_owned(),
             restful_method: "GET".to_owned(),
-            response_status_code: None,
             body_as_utf8_str: Some("{\"json_key\": \"json_value_str\"}".to_owned()),
         };
 
         assert_eq!(
             log.as_log_str(),
-            "[2014-07-08T09:10:11+00:00] [INFO] [REQUEST] [35.111.95.142] [/api/v1/health_check] [GET] [] [{\"json_key\": \"json_value_str\"}]"
+            "[2014-07-08T09:10:11+00:00] [INFO] [REQUEST] [35.111.95.142] [/api/v1/health_check] [GET] [{\"json_key\": \"json_value_str\"}]"
         );
 
         match write_to_server_log(log.as_log_str()) {
@@ -115,20 +135,18 @@ mod tests {
 
     #[test]
     fn test_http_response_log_as_log_str() {
-        let log = HTTPLog {
+        let log = HTTPResponseLog {
             timestamp: Utc.with_ymd_and_hms(2014, 7, 8, 9, 10, 11).unwrap(),
             log_level: LogLevel::INFO,
             log_type: LogType::RESPONSE,
             originating_ip_addr: "127.0.0.1".to_owned(),
-            api: "/api/v1/health_check".to_owned(),
-            restful_method: "GET".to_owned(),
-            response_status_code: Some(200),
+            response_status_code: 200,
             body_as_utf8_str: None,
         };
 
         assert_eq!(
             log.as_log_str(),
-            "[2014-07-08T09:10:11+00:00] [INFO] [RESPONSE] [127.0.0.1] [/api/v1/health_check] [GET] [200] []"
+            "[2014-07-08T09:10:11+00:00] [INFO] [RESPONSE] [127.0.0.1] [200] []"
         );
 
         match write_to_server_log(log.as_log_str()) {
@@ -139,14 +157,13 @@ mod tests {
 
     #[test]
     fn test_write_to_server_log() {
-        let log = HTTPLog {
+        let log = HTTPRequestLog {
             timestamp: Utc.with_ymd_and_hms(2014, 7, 8, 9, 10, 11).unwrap(),
             log_level: LogLevel::INFO,
             log_type: LogType::REQUEST,
             originating_ip_addr: "35.111.95.142".to_owned(),
             api: "/api/v1/health_check".to_owned(),
             restful_method: "GET".to_owned(),
-            response_status_code: None,
             body_as_utf8_str: Some("{\"json_key\": \"json_value_str\"}".to_owned()),
         };
 
