@@ -53,24 +53,19 @@ pub struct DBRequestLog {
     pub log_level: LogLevel,
     pub log_type: LogType,
     pub socket_addr: String,
-    pub method: String,
-    pub pile_name: Option<String>,
+    pub command: String,
     pub payload_size_in_bytes: Option<usize>,
 }
 
 impl DBRequestLog {
     pub fn as_log_str(&self) -> String {
         format!(
-            "[{}] [{}] [{}] [{}] [{}] [{}] [{}B]",
+            "[{}] [{}] [{}] [{}] [{}] [{}B]",
             &self.timestamp.to_rfc3339(),
             &self.log_level,
             &self.log_type,
             &self.socket_addr,
-            &self.method,
-            match &self.pile_name {
-                None => "",
-                Some(pile_name) => pile_name,
-            },
+            &self.command,
             match &self.payload_size_in_bytes {
                 None => "0".to_owned(),
                 Some(payload_size_in_bytes) => payload_size_in_bytes.to_string(),
@@ -235,14 +230,13 @@ mod tests {
             log_level: LogLevel::INFO,
             log_type: LogType::REQUEST,
             socket_addr: "127.0.0.1:44089".to_owned(),
-            method: "CREATE".to_owned(),
-            pile_name: Some("users".to_owned()),
+            command: "CREATE users 7A".to_owned(),
             payload_size_in_bytes: Some(30),
         };
 
         assert_eq!(
             log.as_log_str(),
-            "[2014-07-08T09:10:11+00:00] [INFO] [REQUEST] [127.0.0.1:44089] [CREATE] [users] [30B]"
+            "[2014-07-08T09:10:11+00:00] [INFO] [REQUEST] [127.0.0.1:44089] [CREATE users 7A] [30B]"
         );
 
         match write_to_log(log.as_log_str(), LogDistinction::DB) {
@@ -258,8 +252,7 @@ mod tests {
             log_level: LogLevel::INFO,
             log_type: LogType::REQUEST,
             socket_addr: "127.0.0.1:44089".to_owned(),
-            method: "CREATE".to_owned(),
-            pile_name: Some("users".to_owned()),
+            command: "CREATE users 7A".to_owned(),
             payload_size_in_bytes: Some(30),
         };
 
