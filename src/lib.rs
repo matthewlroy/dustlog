@@ -6,6 +6,20 @@ use std::fs::{self, OpenOptions};
 use std::io;
 use std::io::prelude::*;
 
+pub enum LogDistinction {
+    SERVER,
+    DB,
+}
+
+impl Display for LogDistinction {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        match &*self {
+            LogDistinction::SERVER => write!(formatter, "server"),
+            LogDistinction::DB => write!(formatter, "db"),
+        }
+    }
+}
+
 pub enum LogLevel {
     INFO,
     ERROR,
@@ -31,6 +45,37 @@ impl Display for LogType {
             LogType::REQUEST => write!(formatter, "REQUEST"),
             LogType::RESPONSE => write!(formatter, "RESPONSE"),
         }
+    }
+}
+
+pub struct DBRequestLog {
+    pub timestamp: DateTime<Utc>,
+    pub log_level: LogLevel,
+    pub log_type: LogType,
+    pub socket_addr: String,
+    pub method: String,
+    pub pile_name: Option<String>,
+    pub payload_size_in_bytes: Option<usize>,
+}
+
+impl DBRequestLog {
+    pub fn as_log_str(&self) -> String {
+        format!(
+            "[{}] [{}] [{}] [{}] [{}] [{}] [{}B]",
+            &self.timestamp.to_rfc3339(),
+            &self.log_level,
+            &self.log_type,
+            &self.socket_addr,
+            &self.method,
+            match &self.pile_name {
+                None => "",
+                Some(pile_name) => pile_name,
+            },
+            match &self.payload_size_in_bytes {
+                None => "0".to_owned(),
+                Some(payload_size_in_bytes) => payload_size_in_bytes.to_string(),
+            },
+        )
     }
 }
 
@@ -93,14 +138,14 @@ impl HTTPResponseLog {
     }
 }
 
-pub fn write_to_server_log(log_str: String) -> io::Result<()> {
+pub fn write_to_log(log_str: String, log_distinction: LogDistinction) -> io::Result<()> {
     // Create the path for the desired logging area (if not exists)
     fs::create_dir_all(get_env_var("DUST_LOG_PATH"))?;
 
     let mut log_file = OpenOptions::new().create(true).append(true).open(format!(
         "{}/{}.{}",
         get_env_var("DUST_LOG_PATH"),
-        "server",
+        log_distinction,
         get_env_var("DUST_LOG_FMT")
     ))?;
 
@@ -112,7 +157,10 @@ pub fn write_to_server_log(log_str: String) -> io::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{write_to_server_log, HTTPRequestLog, HTTPResponseLog, LogLevel, LogType};
+    use crate::{
+        write_to_log, DBRequestLog, HTTPRequestLog, HTTPResponseLog, LogDistinction, LogLevel,
+        LogType,
+    };
     use chrono::prelude::*;
 
     #[test]
@@ -133,7 +181,7 @@ mod tests {
             "[2014-07-08T09:10:11+00:00] [INFO] [REQUEST] [35.111.95.142] [/api/v1/health_check] [GET] [30B] [{\"json_key\": \"json_value_str\"}]"
         );
 
-        match write_to_server_log(log.as_log_str()) {
+        match write_to_log(log.as_log_str(), LogDistinction::SERVER) {
             Ok(_) => assert_eq!(true, true),
             Err(_) => assert_eq!(false, true),
         }
@@ -155,7 +203,7 @@ mod tests {
             "[2014-07-08T09:10:11+00:00] [INFO] [RESPONSE] [127.0.0.1] [200] []"
         );
 
-        match write_to_server_log(log.as_log_str()) {
+        match write_to_log(log.as_log_str(), LogDistinction::SERVER) {
             Ok(_) => assert_eq!(true, true),
             Err(_) => assert_eq!(false, true),
         }
@@ -174,7 +222,48 @@ mod tests {
             body_as_utf8_str: Some("{\"json_key\": \"json_value_str\"}".to_owned()),
         };
 
-        match write_to_server_log(log.as_log_str()) {
+        match write_to_log(log.as_log_str(), LogDistinction::SERVER) {
+            Ok(_) => assert_eq!(true, true),
+            Err(_) => assert_eq!(false, true),
+        }
+    }
+
+    #[test]
+    fn test_db_request_log_as_log_str() {
+        let log = DBRequestLog {
+            timestamp: Utc.with_ymd_and_hms(2014, 7, 8, 9, 10, 11).unwrap(),
+            log_level: LogLevel::INFO,
+            log_type: LogType::REQUEST,
+            socket_addr: "127.0.0.1:44089".to_owned(),
+            method: "CREATE".to_owned(),
+            pile_name: Some("users".to_owned()),
+            payload_size_in_bytes: Some(30),
+        };
+
+        assert_eq!(
+            log.as_log_str(),
+            "[2014-07-08T09:10:11+00:00] [INFO] [REQUEST] [127.0.0.1:44089] [CREATE] [users] [30B]"
+        );
+
+        match write_to_log(log.as_log_str(), LogDistinction::DB) {
+            Ok(_) => assert_eq!(true, true),
+            Err(_) => assert_eq!(false, true),
+        }
+    }
+
+    #[test]
+    fn test_write_to_db_log() {
+        let log = DBRequestLog {
+            timestamp: Utc.with_ymd_and_hms(2014, 7, 8, 9, 10, 11).unwrap(),
+            log_level: LogLevel::INFO,
+            log_type: LogType::REQUEST,
+            socket_addr: "127.0.0.1:44089".to_owned(),
+            method: "CREATE".to_owned(),
+            pile_name: Some("users".to_owned()),
+            payload_size_in_bytes: Some(30),
+        };
+
+        match write_to_log(log.as_log_str(), LogDistinction::DB) {
             Ok(_) => assert_eq!(true, true),
             Err(_) => assert_eq!(false, true),
         }
