@@ -74,6 +74,30 @@ impl DBRequestLog {
     }
 }
 
+pub struct DBResponseLog {
+    pub timestamp: DateTime<Utc>,
+    pub log_level: LogLevel,
+    pub log_type: LogType,
+    pub exit_code: u8,
+    pub message: Option<String>,
+}
+
+impl DBResponseLog {
+    pub fn as_log_str(&self) -> String {
+        format!(
+            "[{}] [{}] [{}] [{}] [{}]",
+            &self.timestamp.to_rfc3339(),
+            &self.log_level,
+            &self.log_type,
+            &self.exit_code,
+            match &self.message {
+                None => "",
+                Some(message) => message,
+            }
+        )
+    }
+}
+
 pub struct HTTPRequestLog {
     pub timestamp: DateTime<Utc>,
     pub log_level: LogLevel,
@@ -153,8 +177,8 @@ pub fn write_to_log(log_str: String, log_distinction: LogDistinction) -> io::Res
 #[cfg(test)]
 mod tests {
     use crate::{
-        write_to_log, DBRequestLog, HTTPRequestLog, HTTPResponseLog, LogDistinction, LogLevel,
-        LogType,
+        write_to_log, DBRequestLog, DBResponseLog, HTTPRequestLog, HTTPResponseLog, LogDistinction,
+        LogLevel, LogType,
     };
     use chrono::prelude::*;
 
@@ -257,6 +281,45 @@ mod tests {
         };
 
         match write_to_log(log.as_log_str(), LogDistinction::DB) {
+            Ok(_) => assert_eq!(true, true),
+            Err(_) => assert_eq!(false, true),
+        }
+    }
+
+    #[test]
+    fn test_db_response_log_as_log_str() {
+        let log = DBResponseLog {
+            timestamp: Utc.with_ymd_and_hms(2014, 7, 8, 9, 10, 11).unwrap(),
+            log_level: LogLevel::INFO,
+            log_type: LogType::RESPONSE,
+            exit_code: 0,
+            message: None,
+        };
+
+        let log_2 = DBResponseLog {
+            timestamp: Utc.with_ymd_and_hms(2014, 7, 8, 9, 10, 11).unwrap(),
+            log_level: LogLevel::ERROR,
+            log_type: LogType::RESPONSE,
+            exit_code: 1,
+            message: Some("Error creating db entry!".to_owned()),
+        };
+
+        assert_eq!(
+            log.as_log_str(),
+            "[2014-07-08T09:10:11+00:00] [INFO] [RESPONSE] [0] []"
+        );
+
+        assert_eq!(
+            log_2.as_log_str(),
+            "[2014-07-08T09:10:11+00:00] [ERROR] [RESPONSE] [1] [Error creating db entry!]"
+        );
+
+        match write_to_log(log.as_log_str(), LogDistinction::DB) {
+            Ok(_) => assert_eq!(true, true),
+            Err(_) => assert_eq!(false, true),
+        }
+
+        match write_to_log(log_2.as_log_str(), LogDistinction::DB) {
             Ok(_) => assert_eq!(true, true),
             Err(_) => assert_eq!(false, true),
         }
