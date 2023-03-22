@@ -6,6 +6,7 @@ use std::fs::{self, OpenOptions};
 use std::io;
 use std::io::prelude::*;
 
+// TODO: Abstract LogDistinction away from clients?
 pub enum LogDistinction {
     SERVER,
     DB,
@@ -34,7 +35,7 @@ impl Display for LogLevel {
     }
 }
 
-pub enum LogType {
+enum LogType {
     REQUEST,
     RESPONSE,
 }
@@ -51,7 +52,6 @@ impl Display for LogType {
 pub struct DBRequestLog {
     pub timestamp: DateTime<Utc>,
     pub log_level: LogLevel,
-    pub log_type: LogType,
     pub socket_addr: String,
     pub command: String,
     pub payload_size_in_bytes: Option<usize>,
@@ -63,7 +63,7 @@ impl DBRequestLog {
             "[{}] [{}] [{}] [{}] [{}] [{}B]",
             &self.timestamp.to_rfc3339(),
             &self.log_level,
-            &self.log_type,
+            LogType::REQUEST,
             &self.socket_addr,
             &self.command,
             match &self.payload_size_in_bytes {
@@ -77,7 +77,6 @@ impl DBRequestLog {
 pub struct DBResponseLog {
     pub timestamp: DateTime<Utc>,
     pub log_level: LogLevel,
-    pub log_type: LogType,
     pub exit_code: u8,
     pub message: Option<String>,
 }
@@ -88,7 +87,7 @@ impl DBResponseLog {
             "[{}] [{}] [{}] [{}] [{}]",
             &self.timestamp.to_rfc3339(),
             &self.log_level,
-            &self.log_type,
+            LogType::RESPONSE,
             &self.exit_code,
             match &self.message {
                 None => "",
@@ -101,7 +100,6 @@ impl DBResponseLog {
 pub struct HTTPRequestLog {
     pub timestamp: DateTime<Utc>,
     pub log_level: LogLevel,
-    pub log_type: LogType,
     pub originating_ip_addr: String,
     pub api: String,
     pub restful_method: String,
@@ -115,7 +113,7 @@ impl HTTPRequestLog {
             "[{}] [{}] [{}] [{}] [{}] [{}] [{}B] [{}]",
             &self.timestamp.to_rfc3339(),
             &self.log_level,
-            &self.log_type,
+            LogType::REQUEST,
             &self.originating_ip_addr,
             &self.api,
             &self.restful_method,
@@ -134,7 +132,6 @@ impl HTTPRequestLog {
 pub struct HTTPResponseLog {
     pub timestamp: DateTime<Utc>,
     pub log_level: LogLevel,
-    pub log_type: LogType,
     pub originating_ip_addr: String,
     pub response_status_code: u16,
     pub body_as_utf8_str: Option<String>,
@@ -146,7 +143,7 @@ impl HTTPResponseLog {
             "[{}] [{}] [{}] [{}] [{}] [{}]",
             &self.timestamp.to_rfc3339(),
             &self.log_level,
-            &self.log_type,
+            LogType::RESPONSE,
             &self.originating_ip_addr,
             &self.response_status_code.to_string(),
             match &self.body_as_utf8_str {
@@ -178,7 +175,7 @@ pub fn write_to_log(log_str: String, log_distinction: LogDistinction) -> io::Res
 mod tests {
     use crate::{
         write_to_log, DBRequestLog, DBResponseLog, HTTPRequestLog, HTTPResponseLog, LogDistinction,
-        LogLevel, LogType,
+        LogLevel,
     };
     use chrono::prelude::*;
 
@@ -187,7 +184,6 @@ mod tests {
         let log = HTTPRequestLog {
             timestamp: Utc.with_ymd_and_hms(2014, 7, 8, 9, 10, 11).unwrap(),
             log_level: LogLevel::INFO,
-            log_type: LogType::REQUEST,
             originating_ip_addr: "35.111.95.142".to_owned(),
             api: "/api/v1/health_check".to_owned(),
             restful_method: "GET".to_owned(),
@@ -211,7 +207,6 @@ mod tests {
         let log = HTTPResponseLog {
             timestamp: Utc.with_ymd_and_hms(2014, 7, 8, 9, 10, 11).unwrap(),
             log_level: LogLevel::INFO,
-            log_type: LogType::RESPONSE,
             originating_ip_addr: "127.0.0.1".to_owned(),
             response_status_code: 200,
             body_as_utf8_str: None,
@@ -233,7 +228,6 @@ mod tests {
         let log = HTTPRequestLog {
             timestamp: Utc.with_ymd_and_hms(2014, 7, 8, 9, 10, 11).unwrap(),
             log_level: LogLevel::INFO,
-            log_type: LogType::REQUEST,
             originating_ip_addr: "35.111.95.142".to_owned(),
             api: "/api/v1/health_check".to_owned(),
             restful_method: "GET".to_owned(),
@@ -252,7 +246,6 @@ mod tests {
         let log = DBRequestLog {
             timestamp: Utc.with_ymd_and_hms(2014, 7, 8, 9, 10, 11).unwrap(),
             log_level: LogLevel::INFO,
-            log_type: LogType::REQUEST,
             socket_addr: "127.0.0.1:44089".to_owned(),
             command: "CREATE users 7A".to_owned(),
             payload_size_in_bytes: Some(30),
@@ -274,7 +267,6 @@ mod tests {
         let log = DBRequestLog {
             timestamp: Utc.with_ymd_and_hms(2014, 7, 8, 9, 10, 11).unwrap(),
             log_level: LogLevel::INFO,
-            log_type: LogType::REQUEST,
             socket_addr: "127.0.0.1:44089".to_owned(),
             command: "CREATE users 7A".to_owned(),
             payload_size_in_bytes: Some(30),
@@ -291,7 +283,6 @@ mod tests {
         let log = DBResponseLog {
             timestamp: Utc.with_ymd_and_hms(2014, 7, 8, 9, 10, 11).unwrap(),
             log_level: LogLevel::INFO,
-            log_type: LogType::RESPONSE,
             exit_code: 0,
             message: None,
         };
@@ -299,7 +290,6 @@ mod tests {
         let log_2 = DBResponseLog {
             timestamp: Utc.with_ymd_and_hms(2014, 7, 8, 9, 10, 11).unwrap(),
             log_level: LogLevel::ERROR,
-            log_type: LogType::RESPONSE,
             exit_code: 1,
             message: Some("Error creating db entry!".to_owned()),
         };
