@@ -6,8 +6,7 @@ use std::fs::{self, OpenOptions};
 use std::io;
 use std::io::prelude::*;
 
-// TODO: Abstract LogDistinction away from clients?
-pub enum LogDistinction {
+enum LogDistinction {
     SERVER,
     DB,
 }
@@ -72,6 +71,10 @@ impl DBRequestLog {
             },
         )
     }
+
+    pub fn get_log_distinction(&self) -> String {
+        format!("{}", LogDistinction::DB)
+    }
 }
 
 pub struct DBResponseLog {
@@ -94,6 +97,10 @@ impl DBResponseLog {
                 Some(message) => message,
             }
         )
+    }
+
+    pub fn get_log_distinction(&self) -> String {
+        format!("{}", LogDistinction::DB)
     }
 }
 
@@ -127,6 +134,10 @@ impl HTTPRequestLog {
             }
         )
     }
+
+    pub fn get_log_distinction(&self) -> String {
+        format!("{}", LogDistinction::SERVER)
+    }
 }
 
 pub struct HTTPResponseLog {
@@ -152,16 +163,20 @@ impl HTTPResponseLog {
             }
         )
     }
+
+    pub fn get_log_distinction(&self) -> String {
+        format!("{}", LogDistinction::SERVER)
+    }
 }
 
-pub fn write_to_log(log_str: String, log_distinction: LogDistinction) -> io::Result<()> {
+pub fn write_to_log(log_str: String, log_distinction: String) -> io::Result<()> {
     // Create the path for the desired logging area (if not exists)
     fs::create_dir_all(get_env_var("DUST_LOG_PATH"))?;
 
     let mut log_file = OpenOptions::new().create(true).append(true).open(format!(
         "{}/{}.{}",
         get_env_var("DUST_LOG_PATH"),
-        log_distinction,
+        log_distinction.to_lowercase(),
         get_env_var("DUST_LOG_FMT")
     ))?;
 
@@ -174,8 +189,7 @@ pub fn write_to_log(log_str: String, log_distinction: LogDistinction) -> io::Res
 #[cfg(test)]
 mod tests {
     use crate::{
-        write_to_log, DBRequestLog, DBResponseLog, HTTPRequestLog, HTTPResponseLog, LogDistinction,
-        LogLevel,
+        write_to_log, DBRequestLog, DBResponseLog, HTTPRequestLog, HTTPResponseLog, LogLevel,
     };
     use chrono::prelude::*;
 
@@ -196,7 +210,7 @@ mod tests {
             "[2014-07-08T09:10:11+00:00] [INFO] [REQUEST] [35.111.95.142] [/api/v1/health_check] [GET] [30B] [{\"json_key\": \"json_value_str\"}]"
         );
 
-        match write_to_log(log.as_log_str(), LogDistinction::SERVER) {
+        match write_to_log(log.as_log_str(), log.get_log_distinction()) {
             Ok(_) => assert_eq!(true, true),
             Err(_) => assert_eq!(false, true),
         }
@@ -217,7 +231,7 @@ mod tests {
             "[2014-07-08T09:10:11+00:00] [INFO] [RESPONSE] [127.0.0.1] [200] []"
         );
 
-        match write_to_log(log.as_log_str(), LogDistinction::SERVER) {
+        match write_to_log(log.as_log_str(), log.get_log_distinction()) {
             Ok(_) => assert_eq!(true, true),
             Err(_) => assert_eq!(false, true),
         }
@@ -235,7 +249,7 @@ mod tests {
             body_as_utf8_str: Some("{\"json_key\": \"json_value_str\"}".to_owned()),
         };
 
-        match write_to_log(log.as_log_str(), LogDistinction::SERVER) {
+        match write_to_log(log.as_log_str(), log.get_log_distinction()) {
             Ok(_) => assert_eq!(true, true),
             Err(_) => assert_eq!(false, true),
         }
@@ -256,7 +270,7 @@ mod tests {
             "[2014-07-08T09:10:11+00:00] [INFO] [REQUEST] [127.0.0.1:44089] [CREATE users 7A] [30B]"
         );
 
-        match write_to_log(log.as_log_str(), LogDistinction::DB) {
+        match write_to_log(log.as_log_str(), log.get_log_distinction()) {
             Ok(_) => assert_eq!(true, true),
             Err(_) => assert_eq!(false, true),
         }
@@ -272,7 +286,7 @@ mod tests {
             payload_size_in_bytes: Some(30),
         };
 
-        match write_to_log(log.as_log_str(), LogDistinction::DB) {
+        match write_to_log(log.as_log_str(), log.get_log_distinction()) {
             Ok(_) => assert_eq!(true, true),
             Err(_) => assert_eq!(false, true),
         }
@@ -304,12 +318,12 @@ mod tests {
             "[2014-07-08T09:10:11+00:00] [ERROR] [RESPONSE] [1] [Error creating db entry!]"
         );
 
-        match write_to_log(log.as_log_str(), LogDistinction::DB) {
+        match write_to_log(log.as_log_str(), log.get_log_distinction()) {
             Ok(_) => assert_eq!(true, true),
             Err(_) => assert_eq!(false, true),
         }
 
-        match write_to_log(log_2.as_log_str(), LogDistinction::DB) {
+        match write_to_log(log_2.as_log_str(), log_2.get_log_distinction()) {
             Ok(_) => assert_eq!(true, true),
             Err(_) => assert_eq!(false, true),
         }
